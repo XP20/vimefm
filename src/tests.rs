@@ -39,6 +39,15 @@ mod tests {
     }
 
     #[test]
+    fn test_simple_multiline() {
+        const EFM: &str = r"%EError %n,%Cline %l,%Ccolumn %c,%Z%m";
+        const EXPECTED: &str = r"%EError %n,%Cline %l,%Ccolumn %c,%Z%m";
+
+        let output = test_utils::lex_debug(EFM);
+        assert_eq!(output, EXPECTED);
+    }
+
+    #[test]
     fn test_prefix() {
         const EFM: &str = "%-G%.%#";
         const EXPECTED: &str = "%-G%.%#";

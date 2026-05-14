@@ -155,21 +155,24 @@ pub fn lex(errorformat: &str) -> Result<Vec<ErrorFormat>, EfmError> {
 
     let mut format = ErrorFormat::default();
     let mut b_next = iter.next();
+    let mut is_new_efm = true;
 
-    // Handle format string prefix (e.g. '%-G')
-    match b_next {
-        Some(&b'%') => b_next = capture_prefix(iter.next(), &mut format, &mut iter)?,
-        None => {
-            return Err(EfmError::Syntax(format!(
-                "{}: 'errorformat' contains no pattern",
-                VimError::EErrorformatContainsNoPattern
-            )));
-        }
-        _ => {}
-    };
+    if b_next.is_none() {
+        return Err(EfmError::Syntax(format!(
+            "{}: 'errorformat' contains no pattern",
+            VimError::EErrorformatContainsNoPattern
+        )));
+    }
 
     // Lex format string bytes into tokens
     while let Some(&c) = b_next {
+        // Handle format string prefix first (e.g. '%-G')
+        if c == b'%' && is_new_efm {
+            is_new_efm = false;
+            b_next = capture_prefix(iter.next(), &mut format, &mut iter)?;
+            continue;
+        }
+
         b_next = match c {
             b'%' => lex_conversion(iter.next(), &mut format, &mut iter),
             b'\\' => lex_backslash(iter.next(), &mut format, &mut iter),
@@ -182,6 +185,7 @@ pub fn lex(errorformat: &str) -> Result<Vec<ErrorFormat>, EfmError> {
                 }
                 // Push entry and start new ErrorFormat
                 formats.push(std::mem::take(&mut format));
+                is_new_efm = true;
 
                 // Skip leading whitespace after comma
                 Ok(iter.find(|&&b| b != b' '))
