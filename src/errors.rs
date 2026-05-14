@@ -37,7 +37,7 @@ impl std::fmt::Display for VimError {
 
 #[derive(Debug)]
 pub enum EfmError {
-    /// Occurs when failing to parse a Vim `errorformat` string.
+    /// Occurs when lexical analysis fails for a Vim `errorformat` string.
     Syntax(String),
 }
 
