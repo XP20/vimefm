@@ -1,3 +1,5 @@
+use crate::types::PrefixData;
+
 /// Assignable `errorformat` conversion kinds.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConversionKind {
@@ -41,14 +43,16 @@ pub enum ConversionKind {
     /// %m    error message (finds a string)
     ErrorMsg,
 
-    /// %r    matches the "rest" of a single-line file message %O/P/Q
-    ///       regex equivalent of: ".*"
-    MatchRest,
     // TODO(doc): improve docs:
     //            at least 1 char needed, ^$ usage?
     //            https://stackoverflow.com/questions/62276628/need-examples-for-s-in-errorformat-of-vim
     /// %s    search text (finds a string)
-    MatchSearch,
+    SearchText,
+
+    // TODO: seaprate into MatchKind?
+    /// %r    matches the "rest" of a single-line file message %O/P/Q
+    ///       regex equivalent of: ".*"
+    MatchRest,
     // TODO(impl, lexer): scanf()-like scanset and immediate tokens type
     //                    https://github.com/vim/vim/blob/master/src/quickfix.c#L385
     // NOTE: backward-compatability only
@@ -64,6 +68,9 @@ pub enum ConversionKind {
 pub enum Token {
     /// UTF-8 code unit.
     CodeUnit(u8),
+
+    /// A state-dependent
+    Prefix(PrefixData),
 
     /// An assignable conversion.
     Capture(ConversionKind),

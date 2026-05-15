@@ -3,7 +3,7 @@ use crate::types::*;
 
 fn lex_conversion<'a, I>(
     b_first: Option<I::Item>,
-    format: &mut ErrorFormat,
+    format: &mut Vec<Token>,
     iter: &mut I,
 ) -> Result<Option<I::Item>, EfmError>
 where
@@ -22,8 +22,8 @@ where
         Some(&b't') => Token::Capture(ConversionKind::ErrorType),
         Some(&b'n') => Token::Capture(ConversionKind::ErrorNum),
         Some(&b'm') => Token::Capture(ConversionKind::ErrorMsg),
+        Some(&b's') => Token::Capture(ConversionKind::SearchText),
         Some(&b'r') => Token::Match(ConversionKind::MatchRest),
-        Some(&b's') => Token::Match(ConversionKind::MatchSearch),
         // TODO: scanf()-like matching
         // probably here calling on a function to greedily extract the full scanf() tokens
         // and use new Token::Scanf(ScanfKind) for scanset and vim-regexp
@@ -45,13 +45,13 @@ where
         }
     };
 
-    format.tokens.push(token);
+    format.push(token);
     Ok(iter.next())
 }
 
 fn lex_backslash<'a, I>(
     b_first: Option<I::Item>,
-    format: &mut ErrorFormat,
+    format: &mut Vec<Token>,
     iter: &mut I,
 ) -> Result<Option<I::Item>, EfmError>
 where
@@ -74,18 +74,19 @@ where
         }
     };
 
-    format.tokens.push(token);
+    format.push(token);
     Ok(iter.next())
 }
 
 fn capture_prefix<'a, I>(
     b_first: Option<I::Item>,
-    format: &mut ErrorFormat,
+    format: &mut Vec<Token>,
     iter: &mut I,
 ) -> Result<Option<I::Item>, EfmError>
 where
     I: Iterator<Item = &'a u8>,
 {
+    let mut prefix = PrefixData::default();
     let mut b_next = b_first;
 
     // Handle flag and advance iterator
@@ -95,11 +96,11 @@ where
         _ => None,
     };
     if let Some(f) = flag {
-        format.prefix.set_flag(Some(f == '+'));
+        prefix.set_flag(Some(f == '+'));
         b_next = iter.next();
     }
 
-    let prefix = match b_next {
+    prefix.set_prefix(Some(match b_next {
         Some(&b'E') => PrefixKind::MultilineError,
         Some(&b'W') => PrefixKind::MultilineWarn,
         Some(&b'I') => PrefixKind::MultilineInfo,
@@ -139,21 +140,20 @@ where
                 ))),
             };
         }
-    };
+    }));
 
-    format.prefix.set_prefix(Some(prefix));
+    format.push(Token::Prefix(prefix));
     Ok(iter.next())
 }
 
-/// Tokenizes the given Vim `errorformat` string
-/// across ErrorFormat IR structs for the interpreter.
+/// Tokenizes the given Vim `errorformat` string for parsing.
 ///
 /// See `:help errorformat` in Vim for the format specification.
-pub fn lex(errorformat: &str) -> Result<Vec<ErrorFormat>, EfmError> {
-    let mut formats: Vec<ErrorFormat> = Vec::new();
-    let mut iter = errorformat.as_bytes().iter();
+pub fn lex(input: &str) -> Result<Vec<Vec<Token>>, EfmError> {
+    let mut formats: Vec<Vec<Token>> = Vec::new();
+    let mut iter = input.as_bytes().iter();
 
-    let mut format = ErrorFormat::default();
+    let mut format = Vec::new();
     let mut b_next = iter.next();
     let mut is_new_efm = true;
 
@@ -177,13 +177,13 @@ pub fn lex(errorformat: &str) -> Result<Vec<ErrorFormat>, EfmError> {
             b'%' => lex_conversion(iter.next(), &mut format, &mut iter),
             b'\\' => lex_backslash(iter.next(), &mut format, &mut iter),
             b',' => {
-                if format == ErrorFormat::default() {
+                if format.len() == 0 {
                     return Err(EfmError::Syntax(format!(
                         "{}: Some 'errorformat' entry contains no pattern",
                         VimError::EErrorformatContainsNoPattern
                     )));
                 }
-                // Push entry and start new ErrorFormat
+                // Push entry and start a new one
                 formats.push(std::mem::take(&mut format));
                 is_new_efm = true;
 
@@ -191,7 +191,7 @@ pub fn lex(errorformat: &str) -> Result<Vec<ErrorFormat>, EfmError> {
                 Ok(iter.find(|&&b| b != b' '))
             }
             _ => {
-                format.tokens.push(Token::CodeUnit(c));
+                format.push(Token::CodeUnit(c));
                 Ok(iter.next())
             }
         }?;

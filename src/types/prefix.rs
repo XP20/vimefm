@@ -38,13 +38,13 @@ pub enum PrefixKind {
     DirectoryLeave = 9,
 
     // TEMP: %O (single-line file skip %f writing)
-    /// %O    todo
+    /// %O    overread (partial) message
     StackOver = 10,
     // TEMP: %P (single-line file push %f stack) %+P ?
-    /// %P    todo
+    /// %P    push file (partial) message
     StackPush = 11,
     // TEMP: %Q (single-line file pop stack)
-    /// %Q    todo
+    /// %Q    pop/quit file (partial) message
     StackPop = 12,
 
     /// %G    this prefix is only useful in combination with '+' or '-'. It
@@ -66,17 +66,17 @@ pub enum PrefixKind {
 /// bits 5-0: FlagKind enum discriminant (u6)
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Prefix(u8);
+pub struct PrefixData(u8);
 
-impl Default for Prefix {
+impl Default for PrefixData {
     #[inline(always)]
     fn default() -> Self {
         Self::new(None, None)
     }
 }
 
-impl Prefix {
-    /// Creates the Prefix packed struct.
+impl PrefixData {
+    /// Creates the PrefixData packed struct.
     /// Unless flag is set, initializes with 0.
     /// Unless prefix is set, initializes with (u8) 63.
     #[inline(always)]
@@ -92,7 +92,7 @@ impl Prefix {
         )
     }
 
-    /// Unpacks the flag portion of Prefix.
+    /// Unpacks the flag portion of PrefixData.
     ///
     /// If flag is unset returns None.
     /// Otherwise returns Some(bool) where bool:
@@ -109,7 +109,7 @@ impl Prefix {
         }
     }
 
-    /// Sets the flag portion of packed Prefix.
+    /// Sets the flag portion of packed PrefixData.
     #[inline(always)]
     pub fn set_flag(self: &mut Self, flag: Option<bool>) {
         self.0 &= 0b0011_1111;
@@ -119,7 +119,7 @@ impl Prefix {
         };
     }
 
-    /// Unpacks the prefix kind enum portion of Prefix.
+    /// Unpacks the prefix kind enum portion of PrefixData.
     ///
     /// If prefix is unset returns None.
     /// Otherwise returns Some(PrefixKind).
